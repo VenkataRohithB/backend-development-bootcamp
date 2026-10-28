@@ -49,14 +49,21 @@ def check_body(body: dict, expected_fields: set) -> str | None:
     return None
 
 
+def check_cancel_body(body: dict) -> str | None:
+    """Students may only cancel an order, so the body must be exactly {"status": "cancelled"}."""
+    if body != {"status": "cancelled"}:
+        return 'Request body must be {"status": "cancelled"}. Students can only cancel an order.'
+    return None
+
+
 # ---------- Menu ----------
 
 def get_menu(category: str | None = None, available: bool | None = None) -> list[dict]:
     sql = "SELECT * FROM menu_items WHERE 1 = 1"  # 1 = 1 lets each filter start with AND
     params = []
     if category is not None:
-        sql += " AND category = ?"
-        params.append(category.lower())
+        sql += " AND LOWER(category) = LOWER(?)"  # "Snacks" and "snacks" both match
+        params.append(category)
     if available is not None:
         sql += " AND available = ?"
         params.append(int(available))
@@ -219,8 +226,9 @@ def get_orders() -> list[dict]:
     return [get_order(row["id"]) for row in rows]
 
 
-def cancel_order(order_id: int) -> None:
+def cancel_order(order_id: int) -> dict:
     conn = connect()
     with conn:
         conn.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
     conn.close()
+    return get_order(order_id)
